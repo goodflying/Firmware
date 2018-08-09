@@ -31,8 +31,7 @@
  *
  ****************************************************************************/
 
-#ifndef DRIVERS_PWM_OUT_SIM_PWMSIM_HPP_
-#define DRIVERS_PWM_OUT_SIM_PWMSIM_HPP_
+#pragma once
 
 #include <string.h>
 
@@ -41,6 +40,7 @@
 #include <drivers/drv_mixer.h>
 #include <drivers/drv_pwm_output.h>
 #include <lib/mixer/mixer.h>
+#include <perf/perf_counter.h>
 #include <px4_common.h>
 #include <px4_config.h>
 #include <px4_module.h>
@@ -49,6 +49,7 @@
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/parameter_update.h>
 
 class PWMSim : public device::CDev, public ModuleBase<PWMSim>
 {
@@ -66,7 +67,7 @@ public:
 	};
 
 	PWMSim();
-	virtual ~PWMSim() = default;
+	virtual ~PWMSim();
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);
@@ -102,7 +103,7 @@ private:
 	int 		_update_rate{400};
 	int 		_current_update_rate{0};
 
-	int			_control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
+	int			_control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 
 	px4_pollfd_struct_t	_poll_fds[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 	unsigned	_poll_fds_num{0};
@@ -129,10 +130,14 @@ private:
 	actuator_controls_s _controls[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 	orb_id_t	_control_topics[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {};
 
+	bool 	_airmode{false}; 	///< multicopter air-mode
+
+	perf_counter_t	_perf_control_latency;
+
 	static int	control_callback(uintptr_t handle, uint8_t control_group, uint8_t control_index, float &input);
 
 	void 	subscribe();
 
+	void 	update_params();
 };
 
-#endif /* DRIVERS_PWM_OUT_SIM_PWMSIM_HPP_ */

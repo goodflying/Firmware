@@ -7,24 +7,15 @@ set(config_module_list
 	drivers/distance_sensor
 	#drivers/telemetry
 
-	drivers/airspeed
 	drivers/batt_smbus
-	drivers/boards
 	drivers/camera_trigger
-	drivers/device
 	drivers/gps
 	drivers/linux_gpio
 	drivers/pwm_out_sim
 	drivers/vmount
 
 	modules/sensors
-	platforms/posix/drivers/accelsim
-	platforms/posix/drivers/adcsim
-	platforms/posix/drivers/airspeedsim
-	platforms/posix/drivers/barosim
-	platforms/posix/drivers/gpssim
-	platforms/posix/drivers/gyrosim
-	platforms/posix/drivers/ledsim
+
 	platforms/posix/drivers/tonealrmsim
 
 	#
@@ -43,6 +34,7 @@ set(config_module_list
 	systemcmds/perf
 	systemcmds/pwm
 	systemcmds/reboot
+	systemcmds/shutdown
 	systemcmds/sd_bench
 	systemcmds/top
 	systemcmds/topic_listener
@@ -58,13 +50,11 @@ set(config_module_list
 	modules/commander/commander_tests
 	lib/controllib/controllib_test
 	modules/mavlink/mavlink_tests
-	modules/mc_pos_control/mc_pos_control_tests
 	modules/uORB/uORB_tests
 	systemcmds/tests
 
 	platforms/posix/tests/hello
 	platforms/posix/tests/hrt_test
-	platforms/posix/tests/muorb
 	platforms/posix/tests/vcdev_test
 
 	#
@@ -88,6 +78,7 @@ set(config_module_list
 	modules/ekf2
 	modules/local_position_estimator
 	modules/position_estimator_inav
+	modules/wind_estimator
 
 	#
 	# Vehicle Control
@@ -104,33 +95,12 @@ set(config_module_list
 	# Logging
 	#
 	modules/logger
-	modules/sdlog2
 
 	#
 	# Library modules
 	#
 	modules/dataman
-	modules/systemlib/param
-	modules/systemlib
-	modules/uORB
 	modules/landing_target_estimator
-
-	#
-	# Libraries
-	#
-	lib/controllib
-	lib/conversion
-	lib/DriverFramework/framework
-	lib/ecl
-	lib/geo
-	lib/geo_lookup
-	lib/led
-	lib/mixer
-	lib/mathlib
-	lib/rc
-	lib/terrain_estimation
-	lib/tunes
-	lib/version
 
 	#
 	# OBC challenge
@@ -193,3 +163,4 @@ if(REPLAY_FILE)
 	message("Building with uorb publisher rules support")
 	add_definitions(-DORB_USE_PUBLISHER_RULES)
 endif()
+

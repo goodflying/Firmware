@@ -1,24 +1,21 @@
 
 px4_nuttx_configure(HWCLASS m4 CONFIG nsh ROMFS y ROMFSROOT px4fmu_common)
 
-set(config_uavcan_num_ifaces 2)
-
 set(config_module_list
 	#
 	# Board support modules
 	#
 	drivers/aerofc_adc
-	drivers/boards
-	drivers/device
 	drivers/distance_sensor
 	drivers/gps
-	drivers/led
 	drivers/barometer/ms5611
 	drivers/magnetometer/hmc5883
 	drivers/magnetometer/ist8310
 	drivers/imu/mpu9250
 	drivers/px4fmu
 	drivers/stm32
+	drivers/pwm_out_sim
+	drivers/rc_input
 	drivers/tap_esc
 	modules/sensors
 
@@ -69,22 +66,5 @@ set(config_module_list
 	#
 	# Library modules
 	#
-	modules/systemlib/param
-	modules/systemlib
-	modules/uORB
 	modules/dataman
-
-	#
-	# Libraries
-	#
-	lib/controllib
-	lib/conversion
-	lib/DriverFramework/framework
-	lib/ecl
-	lib/geo
-	lib/geo_lookup
-	lib/mathlib
-	lib/mixer
-	lib/rc
-	lib/version
 )

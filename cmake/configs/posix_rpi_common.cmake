@@ -15,10 +15,8 @@ set(config_module_list
 	#
 	# Board support modules
 	#
-	drivers/airspeed
 	#drivers/barometer
 	drivers/batt_smbus
-	drivers/device
 	drivers/differential_pressure
 	drivers/distance_sensor
 	#drivers/telemetry
@@ -41,6 +39,7 @@ set(config_module_list
 	systemcmds/ver
 	systemcmds/esc_calib
 	systemcmds/reboot
+	systemcmds/shutdown
 	systemcmds/topic_listener
 	systemcmds/tune_control
 	systemcmds/perf
@@ -68,12 +67,8 @@ set(config_module_list
 	#
 	# Library modules
 	#
-	modules/sdlog2
 	modules/logger
 	modules/commander
-	modules/systemlib/param
-	modules/systemlib
-	modules/uORB
 	modules/dataman
 	modules/land_detector
 	modules/navigator
@@ -92,21 +87,6 @@ set(config_module_list
 	drivers/pwm_out_sim
 	drivers/rpi_rc_in
 
-	#
-	# Libraries
-	#
-	lib/controllib
-	lib/conversion
-	lib/DriverFramework/framework
-	lib/ecl
-	lib/geo
-	lib/geo_lookup
-	lib/led
-	lib/mathlib
-	lib/mixer
-	lib/terrain_estimation
-	lib/tunes
-	lib/version
 )
 
 #

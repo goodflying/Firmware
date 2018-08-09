@@ -63,7 +63,7 @@
 #include <stm32_gpio.h>
 
 #include <systemlib/err.h>
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 
 #include <uORB/topics/system_power.h>
 
@@ -324,7 +324,7 @@ ADC::update_system_power(void)
 	for (unsigned i = 0; i < _channel_count; i++) {
 		if (_samples[i].am_channel == 4) {
 			// it is 2:1 scaled
-			system_power.voltage5V_v = _samples[i].am_data * (6.6f / 4096);
+			system_power.voltage5V_v = _samples[i].am_data * (6.6f / 4096.0f);
 		}
 	}
 

@@ -49,6 +49,15 @@ public:
 
 	ModuleParams(ModuleParams *parent)
 	{
+		setParent(parent);
+	}
+
+	/**
+	 * Set the parent module. This is typically not required, only in cases where
+	 * the parent cannot be set via constructor.
+	 */
+	void setParent(ModuleParams *parent)
+	{
 		if (parent) {
 			parent->_children.add(this);
 		}
@@ -67,7 +76,7 @@ protected:
 	 * Call this whenever the module gets a parameter change notification. It will automatically
 	 * call updateParams() for all children, which then call updateParamsImpl().
 	 */
-	void updateParams()
+	virtual void updateParams()
 	{
 		ModuleParams *child = _children.getHead();
 

@@ -132,8 +132,6 @@ __BEGIN_DECLS
 
 #define RC_UXART_BASE           KINETIS_UART1_BASE
 #define RC_SERIAL_PORT          "/dev/ttyS2"      /* UART1 */
-#define INVERT_RC_INPUT(_s)     board_rc_input(_s);
-
 #define GPIO_RSSI_IN            PIN_ADC1_SE13
 
 /* Ethernet Control
@@ -494,6 +492,10 @@ __BEGIN_DECLS
 		GPIO_ENET_INH,        \
 		GPIO_ENET_CONFIG0,    \
 		GPIO_ENET_CONFIG1,    \
+		PIN_CAN0_RX,          \
+		PIN_CAN0_TX,          \
+		PIN_CAN1_RX,          \
+		PIN_CAN1_TX,          \
 		GPIO_CAN0_STB,        \
 		GPIO_CAN1_STB,        \
 		GPIO_BTN_SAFETY,      \

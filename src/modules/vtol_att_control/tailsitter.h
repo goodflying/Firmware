@@ -43,8 +43,8 @@
 #define TAILSITTER_H
 
 #include "vtol_type.h"
-#include <systemlib/perf_counter.h>  /** is it necsacery? **/
-#include <systemlib/param/param.h>
+#include <perf/perf_counter.h>  /** is it necsacery? **/
+#include <parameters/param.h>
 #include <drivers/drv_hrt.h>
 
 class Tailsitter : public VtolType
@@ -52,7 +52,7 @@ class Tailsitter : public VtolType
 
 public:
 	Tailsitter(VtolAttitudeControl *_att_controller);
-	~Tailsitter();
+	~Tailsitter() = default;
 
 	virtual void update_vtol_state();
 	virtual void update_transition_state();

@@ -124,10 +124,7 @@
 /*
  * RC Serial port
  */
-#define RC_SERIAL_PORT		"/dev/ttyS2"
-/* No invert support */
-#define INVERT_RC_INPUT(_invert_true)		while(0)
-
+#define RC_SERIAL_PORT		"/dev/ttyS2" /* No HW invert support */
 /*
  * High-resolution timer
  */
@@ -142,8 +139,6 @@
 /*
  * ESCs do not respond
  */
-#define BOARD_TAP_ESC_NO_VERIFY_CONFIG 1
-
 #define BOARD_TAP_ESC_MODE 1
 
 #define MEMORY_CONSTRAINED_SYSTEM

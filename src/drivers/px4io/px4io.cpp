@@ -67,12 +67,13 @@
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_mixer.h>
 
+#include <rc/dsm.h>
+
 #include <lib/mixer/mixer.h>
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 #include <systemlib/err.h>
-#include <systemlib/systemlib.h>
-#include <systemlib/param/param.h>
-#include <systemlib/circuit_breaker.h>
+#include <parameters/param.h>
+#include <circuit_breaker/circuit_breaker.h>
 #include <systemlib/mavlink_log.h>
 
 #include <uORB/topics/actuator_controls.h>
@@ -269,9 +270,6 @@ private:
 	orb_advert_t		_to_safety;		///< status of safety
 	orb_advert_t 		_to_mixer_status; 	///< mixer status flags
 
-	actuator_outputs_s	_outputs;		///< mixed outputs
-	servorail_status_s	_servorail_status;	///< servorail status
-
 	bool			_primary_pwm_device;	///< true if we are the default PWM output
 	bool			_lockdown_override;	///< allow to override the safety lockdown
 	bool			_armed;			///< wether the system is armed
@@ -450,7 +448,6 @@ namespace
 {
 
 PX4IO	*g_dev = nullptr;
-
 }
 
 PX4IO::PX4IO(device::Device *interface) :
@@ -471,7 +468,7 @@ PX4IO::PX4IO(device::Device *interface) :
 	_mavlink_log_pub(nullptr),
 	_perf_update(perf_alloc(PC_ELAPSED, "io update")),
 	_perf_write(perf_alloc(PC_ELAPSED, "io write")),
-	_perf_sample_latency(perf_alloc(PC_ELAPSED, "io latency")),
+	_perf_sample_latency(perf_alloc(PC_ELAPSED, "io control latency")),
 	_status(0),
 	_alarms(0),
 	_last_written_arming_s(0),
@@ -490,8 +487,6 @@ PX4IO::PX4IO(device::Device *interface) :
 	_to_servorail(nullptr),
 	_to_safety(nullptr),
 	_to_mixer_status(nullptr),
-	_outputs{},
-	_servorail_status{},
 	_primary_pwm_device(false),
 	_lockdown_override(false),
 	_armed(false),
@@ -508,9 +503,6 @@ PX4IO::PX4IO(device::Device *interface) :
 {
 	/* we need this potentially before it could be set in task_main */
 	g_dev = this;
-
-	_debug_enabled = false;
-	_servorail_status.rssi_v = 0;
 }
 
 PX4IO::~PX4IO()
@@ -589,8 +581,6 @@ PX4IO::init()
 	int ret;
 	param_t sys_restart_param;
 	int32_t sys_restart_val = DM_INIT_REASON_VOLATILE;
-
-	ASSERT(_task == -1);
 
 	sys_restart_param = param_find("SYS_RESTART_TYPE");
 
@@ -745,27 +735,18 @@ PX4IO::init()
 		}
 
 		/* send command to arm system via command API */
-		struct vehicle_command_s cmd = {
-			.timestamp = hrt_absolute_time(),
-			.param5 = 0.0f,
-			.param6 = 0.0f,
-			/* request arming */
-			.param1 = 1.0f,
-			.param2 = 0.0f,
-			.param3 = 0.0f,
-			.param4 = 0.0f,
-			.param7 = 0.0f,
-			.command = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
-			.target_system = (uint8_t)sys_id,
-			.target_component = (uint8_t)comp_id,
-			.source_system = (uint8_t)sys_id,
-			.source_component = (uint8_t)comp_id,
-			/* ask to confirm command */
-			.confirmation = 1
-		};
+		vehicle_command_s vcmd = {};
+		vcmd.timestamp = hrt_absolute_time();
+		vcmd.param1 = 1.0f; /* request arming */
+		vcmd.command = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+		vcmd.target_system = (uint8_t)sys_id;
+		vcmd.target_component = (uint8_t)comp_id;
+		vcmd.source_system = (uint8_t)sys_id;
+		vcmd.source_component = (uint8_t)comp_id;
+		vcmd.confirmation = true; /* ask to confirm command */
 
 		/* send command once */
-		orb_advert_t pub = orb_advertise_queue(ORB_ID(vehicle_command), &cmd, vehicle_command_s::ORB_QUEUE_LENGTH);
+		orb_advert_t pub = orb_advertise_queue(ORB_ID(vehicle_command), &vcmd, vehicle_command_s::ORB_QUEUE_LENGTH);
 
 		/* spin here until IO's state has propagated into the system */
 		do {
@@ -786,7 +767,7 @@ PX4IO::init()
 
 			/* re-send if necessary */
 			if (!safety.armed) {
-				orb_publish(ORB_ID(vehicle_command), pub, &cmd);
+				orb_publish(ORB_ID(vehicle_command), pub, &vcmd);
 				DEVICE_LOG("re-sending arm cmd");
 			}
 
@@ -1221,6 +1202,15 @@ PX4IO::task_main()
 					param_get(parm_handle, &param_val);
 					(void)io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_MOTOR_SLEW_MAX, FLOAT_TO_REG(param_val));
 				}
+
+				/* air-mode */
+				parm_handle = param_find("MC_AIRMODE");
+
+				if (parm_handle != PARAM_INVALID) {
+					int32_t param_val_int;
+					param_get(parm_handle, &param_val_int);
+					(void)io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_AIRMODE, SIGNED_TO_REG(param_val_int));
+				}
 			}
 
 		}
@@ -1237,6 +1227,27 @@ out:
 	if (_primary_pwm_device) {
 		unregister_driver(PWM_OUTPUT0_DEVICE_PATH);
 	}
+
+	if (_to_input_rc) {
+		orb_unadvertise(_to_input_rc);
+	}
+
+	if (_to_outputs) {
+		orb_unadvertise(_to_outputs);
+	}
+
+	if (_to_servorail) {
+		orb_unadvertise(_to_servorail);
+	}
+
+	if (_to_safety) {
+		orb_unadvertise(_to_safety);
+	}
+
+	if (_to_mixer_status) {
+		orb_unadvertise(_to_mixer_status);
+	}
+
 
 	/* tell the dtor that we are exiting */
 	_task = -1;
@@ -1639,7 +1650,8 @@ PX4IO::io_handle_status(uint16_t status)
 		orb_publish(ORB_ID(safety), _to_safety, &safety);
 
 	} else {
-		_to_safety = orb_advertise(ORB_ID(safety), &safety);
+		int instance;
+		_to_safety = orb_advertise_multi(ORB_ID(safety), &safety, &instance, ORB_PRIO_DEFAULT);
 	}
 
 	return ret;
@@ -1679,17 +1691,19 @@ PX4IO::io_handle_alarms(uint16_t alarms)
 void
 PX4IO::io_handle_vservo(uint16_t vservo, uint16_t vrssi)
 {
-	_servorail_status.timestamp = hrt_absolute_time();
+	servorail_status_s servorail_status = {};
+
+	servorail_status.timestamp = hrt_absolute_time();
 
 	/* voltage is scaled to mV */
-	_servorail_status.voltage_v = vservo * 0.001f;
-	_servorail_status.rssi_v    = vrssi * 0.001f;
+	servorail_status.voltage_v = vservo * 0.001f;
+	servorail_status.rssi_v    = vrssi * 0.001f;
 
 	if (_analog_rc_rssi_volt < 0.0f) {
-		_analog_rc_rssi_volt = _servorail_status.rssi_v;
+		_analog_rc_rssi_volt = servorail_status.rssi_v;
 	}
 
-	_analog_rc_rssi_volt = _analog_rc_rssi_volt * 0.99f + _servorail_status.rssi_v * 0.01f;
+	_analog_rc_rssi_volt = _analog_rc_rssi_volt * 0.99f + servorail_status.rssi_v * 0.01f;
 
 	if (_analog_rc_rssi_volt > 2.5f) {
 		_analog_rc_rssi_stable = true;
@@ -1697,10 +1711,10 @@ PX4IO::io_handle_vservo(uint16_t vservo, uint16_t vrssi)
 
 	/* lazily publish the servorail voltages */
 	if (_to_servorail != nullptr) {
-		orb_publish(ORB_ID(servorail_status), _to_servorail, &_servorail_status);
+		orb_publish(ORB_ID(servorail_status), _to_servorail, &servorail_status);
 
 	} else {
-		_to_servorail = orb_advertise(ORB_ID(servorail_status), &_servorail_status);
+		_to_servorail = orb_advertise(ORB_ID(servorail_status), &servorail_status);
 	}
 }
 
@@ -1769,7 +1783,7 @@ PX4IO::io_get_raw_rc_input(rc_input_values &input_rc)
 	input_rc.rc_ppm_frame_length = regs[PX4IO_P_RAW_RC_DATA];
 
 	if (!_analog_rc_rssi_stable) {
-		input_rc.rssi = 255;// we do not actually get digital RSSI regs[PX4IO_P_RAW_RC_NRSSI];
+		input_rc.rssi = regs[PX4IO_P_RAW_RC_NRSSI];
 
 	} else {
 		float rssi_analog = ((_analog_rc_rssi_volt - 0.2f) / 3.0f) * 100.0f;
@@ -1812,6 +1826,11 @@ PX4IO::io_get_raw_rc_input(rc_input_values &input_rc)
 	/* last thing set are the actual channel values as 16 bit values */
 	for (unsigned i = 0; i < channel_count; i++) {
 		input_rc.values[i] = regs[prolog + i];
+	}
+
+	/* zero the remaining fields */
+	for (unsigned i = channel_count; i < (sizeof(input_rc.values) / sizeof(input_rc.values[0])); i++) {
+		input_rc.values[i] = 0;
 	}
 
 	/* get RSSI from input channel */
@@ -1865,14 +1884,8 @@ PX4IO::io_publish_raw_rc()
 		}
 	}
 
-	/* lazily advertise on first publication */
-	if (_to_input_rc == nullptr) {
-		_to_input_rc = orb_advertise(ORB_ID(input_rc), &rc_val);
-
-	} else {
-		orb_publish(ORB_ID(input_rc), _to_input_rc, &rc_val);
-	}
-
+	int instance = 0;
+	orb_publish_auto(ORB_ID(input_rc), &_to_input_rc, &rc_val, &instance, ORB_PRIO_HIGH);
 	return OK;
 }
 
@@ -3343,6 +3356,10 @@ px4io_main(int argc, char *argv[])
 	/* check for sufficient number of arguments */
 	if (argc < 2) {
 		goto out;
+	}
+
+	if (!PX4_MFT_HW_SUPPORTED(PX4_MFT_PX4IO)) {
+		errx(1, "PX4IO Not Supported");
 	}
 
 	if (!strcmp(argv[1], "start")) {

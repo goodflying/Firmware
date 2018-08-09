@@ -45,7 +45,7 @@
 #include <drivers/device/ringbuffer.h>
 #include <drivers/drv_hrt.h>
 
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 
 #include <uORB/topics/distance_sensor.h>
 
@@ -231,16 +231,7 @@ int leddar_one_main(int argc, char *argv[])
 			return PX4_ERROR;
 		}
 
-		bool valid = false;
-
-		if (report.current_distance > report.min_distance
-		    && report.current_distance < report.max_distance) {
-			valid = true;
-		}
-
-		warnx("valid: %u\n", valid);
-		warnx("distance: %0.3fm\n", (double)report.current_distance);
-		warnx("time: %llu\n", report.timestamp);
+		print_message(report);
 
 	} else {
 		help();
@@ -420,6 +411,7 @@ void leddar_one::_publish(uint16_t distance_mm)
 	report.min_distance = MIN_DISTANCE;
 	report.max_distance = MAX_DISTANCE;
 	report.covariance = 0.0f;
+	report.signal_quality = -1;
 	report.id = 0;
 
 	_reports->force(&report);
